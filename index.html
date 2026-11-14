@@ -81,7 +81,7 @@ const saveL=()=>{try{localStorage.setItem(K,JSON.stringify(L));}catch(e){}};
 const qs=new URLSearchParams(location.search);
 if(qs.get("room"))L.room=qs.get("room").toUpperCase();
 let mode=location.hash==="#tv"?"tv":location.hash==="#play"?"play":(L.mode||"");
-let state=null,ws=null,conn="off",picked=null,hostOnline=false;
+let state=null,ws=null,conn="off",picked=null,hostOnline=false,claimed="";
 let installPrompt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;if(!L.room||!mode)render();});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2500);}
@@ -93,7 +93,9 @@ function connect(){
   ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
   ws.onopen=()=>{ws.send(JSON.stringify({type:"join",room:L.room,role:"client"}));};
   ws.onmessage=e=>{const m=JSON.parse(e.data);
-    if(m.type==="joined"){conn="on";hostOnline=!!m.hasHost;render();}
+    if(m.type==="joined"){conn="on";hostOnline=!!m.hasHost;claimed="";if(L.player&&mode==="play")ws.send(JSON.stringify({type:"claim",name:L.player}));render();}
+    else if(m.type==="claimed"){claimed=m.name;render();}
+    else if(m.type==="claimfail"){toast(m.msg||"Name vergeben");if(m.name===L.player){L.player="";saveL();}claimed="";render();}
     else if(m.type==="state"){state=m.state;hostOnline=true;render();}
     else if(m.type==="hostgone"){hostOnline=false;render();}
     else if(m.type==="error"){toast(m.msg);}};
@@ -148,7 +150,8 @@ function tv(){
 function play(){
   if(!state)return `<div class="wrap stack" style="text-align:center;padding-top:3rem"><h2>Raum ${esc(L.room)}</h2><p class="muted">${conn==="on"?(hostOnline?"Warte auf Spielstart …":"Die Litster-App ist nicht verbunden."):"Verbinde …"}</p><button class="btn btn-quiet" id="leave">Anderer Raum</button></div>`;
   const s=state;
-  if(!L.player||!s.players.some(p=>p.name===L.player))return `<div class="wrap stack"><h2>Wer bist du?</h2><div class="chips">${s.players.map(p=>`<button class="chip" data-pick="${esc(p.name)}">${dot(p)}${esc(p.name)}</button>`).join("")}</div><button class="btn btn-quiet" id="leave">Anderer Raum</button></div>`;
+  if(!L.player||!s.players.some(p=>p.name===L.player))return `<div class="wrap stack"><h2>Wer bist du?</h2><p class="small muted" style="margin:0">Jeder Name kann nur auf einem Handy gewählt werden.</p><div class="chips">${s.players.map(p=>`<button class="chip" data-pick="${esc(p.name)}">${dot(p)}${esc(p.name)}</button>`).join("")}</div><button class="btn btn-quiet" id="leave">Anderer Raum</button></div>`;
+  if(claimed!==L.player)return `<div class="wrap stack" style="text-align:center;padding-top:3rem"><h2>${esc(L.player)}</h2><p class="muted">Wird angemeldet …</p><button class="btn btn-quiet" id="unpick">Anderer Name</button></div>`;
   const me=s.players.find(p=>p.name===L.player),cur=s.players[s.turn],mine=cur.name===me.name&&!s.over;
   if(!mine||s.last)picked=null;
   const r=[...s.players].sort((a,b)=>b.cards.length-a.cards.length);
@@ -173,8 +176,9 @@ function play(){
   </div>`;
 }
 function bind(){
-  const lv=document.getElementById("leave");if(lv)lv.onclick=()=>{mode="";L.mode="";saveL();state=null;if(ws){try{ws.onclose=null;ws.close();}catch(e){}ws=null;}conn="off";location.hash="";render();};
-  $.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{L.player=b.dataset.pick;saveL();render();});
+  const up=document.getElementById("unpick");if(up)up.onclick=()=>{L.player="";claimed="";saveL();render();};
+  const lv=document.getElementById("leave");if(lv)lv.onclick=()=>{mode="";L.mode="";L.player="";claimed="";saveL();state=null;if(ws){try{ws.onclose=null;ws.close();}catch(e){}ws=null;}conn="off";location.hash="";render();};
+  $.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{L.player=b.dataset.pick;saveL();if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:"claim",name:L.player}));render();});
   $.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{const a=b.dataset.act;act(a,a==="jokerAnswer"?{yes:b.dataset.yes==="1"}:{});});
   $.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>{const i=+b.dataset.slot;if(picked===i){act("place",{slot:i});picked=null;return;}picked=i;
     $.querySelectorAll("[data-slot]").forEach(x=>{const on=+x.dataset.slot===i;x.setAttribute("aria-pressed",on);x.textContent=on?"Hier ablegen":"＋ hier einsortieren";});});

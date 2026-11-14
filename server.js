@@ -47,8 +47,14 @@ wss.on("connection", (ws) => {
     }
     if (m.type === "ping") return send(ws, { type: "pong" });
     const r = ws.room && rooms.get(ws.room); if (!r) return;
+    if (m.type === "claim" && ws.role === "client") {
+      const name = String(m.name || "").slice(0, 16);
+      const taken = [...r.clients].find(c => c !== ws && c.player === name);
+      if (taken) return send(ws, { type: "claimfail", name, msg: "„" + name + "“ spielt schon auf einem anderen Handy." });
+      ws.player = name; return send(ws, { type: "claimed", name });
+    }
     if (m.type === "state" && ws.role === "host") { r.state = m.state; r.updated = Date.now(); for (const c of r.clients) send(c, { type: "state", state: m.state }); }
-    else if (m.type === "action" && ws.role === "client") { send(r.host, { type: "action", action: m.action, player: m.player }); }
+    else if (m.type === "action" && ws.role === "client") { if (!ws.player) return send(ws, { type: "claimfail", msg: "Erst Spieler wählen." }); send(r.host, { type: "action", action: m.action, player: ws.player }); }
   });
   ws.on("close", () => {
     const r = ws.room && rooms.get(ws.room); if (!r) return;
