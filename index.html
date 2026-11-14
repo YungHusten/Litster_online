@@ -82,6 +82,7 @@ const qs=new URLSearchParams(location.search);
 if(qs.get("room"))L.room=qs.get("room").toUpperCase();
 let mode=location.hash==="#tv"?"tv":location.hash==="#play"?"play":(L.mode||"");
 let state=null,ws=null,conn="off",picked=null,hostOnline=false,claimed="";
+let apkInfo=null;fetch("/apk-info").then(r=>r.ok?r.json():null).then(j=>{if(j&&j.size){apkInfo=j;if(!L.room||!mode)render();}}).catch(()=>{});
 let installPrompt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;if(!L.room||!mode)render();});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2500);}
@@ -126,6 +127,7 @@ function landing(){
     <button class="btn" id="pl">Mitspielen (Handy)</button>
     <button class="btn btn-line" id="tv">Spielbrett anzeigen (Fernseher)</button>
     ${installPrompt?`<button class="btn btn-quiet" id="inst">📲 Als App installieren</button>`:""}
+    ${apkInfo?`<p class="small muted" style="margin:1.5rem 0 .25rem">Für den Spielleiter (spielt die Musik, Android):</p><a class="btn btn-line" href="/Litster.apk" style="text-decoration:none">⬇ Litster-App herunterladen (APK)</a>`:""}
   </div>`;
 }
 const dot=p=>`<span class="dot" style="background:${p.color}">${esc(p.name[0].toUpperCase())}</span>`;

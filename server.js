@@ -19,6 +19,14 @@ const server = http.createServer((req, res) => {
   if (req.url === "/health") { res.writeHead(200); return res.end("ok"); }
   if (req.url === "/manifest.json") { res.writeHead(200, { "Content-Type": "application/manifest+json" }); return res.end(MANIFEST); }
   if (req.url === "/icon.png") { res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" }); return res.end(ICON); }
+  if (req.url === "/Litster.apk" || req.url === "/apk-info") {
+    const f = path.join(__dirname, "Litster.apk");
+    if (!fs.existsSync(f)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(req.url === "/apk-info" ? "{}" : "Keine APK im Repo."); }
+    const st = fs.statSync(f);
+    if (req.url === "/apk-info") { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); return res.end(JSON.stringify({ size: st.size, updated: st.mtime })); }
+    res.writeHead(200, { "Content-Type": "application/vnd.android.package-archive", "Content-Disposition": "attachment; filename=\"Litster.apk\"", "Content-Length": st.size, "Cache-Control": "no-store" });
+    return fs.createReadStream(f).pipe(res);
+  }
   if (req.url === "/sw.js") { res.writeHead(200, { "Content-Type": "application/javascript", "Cache-Control": "no-store" }); return res.end(SW); }
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
   res.end(page());
