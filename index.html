@@ -87,8 +87,13 @@ function connect(){
     else if(m.type==="state"){state=m.state;hostOnline=true;render();}
     else if(m.type==="hostgone"){hostOnline=false;render();}
     else if(m.type==="error"){toast(m.msg);}};
-  ws.onclose=()=>{conn="off";render();setTimeout(connect,3000);};
+  ws.onclose=()=>{conn="off";clearInterval(hb);render();setTimeout(connect,3000);};
+  clearInterval(hb);let waiting=false;
+  hb=setInterval(()=>{if(!ws||ws.readyState!==1)return;if(waiting){try{ws.close();}catch(e){}return;}waiting=true;ws.send(JSON.stringify({type:"ping"}));setTimeout(()=>{waiting=false;},8000);},15000);
+  const om=ws.onmessage;ws.onmessage=e=>{if(e.data.indexOf('"pong"')>=0){waiting=false;return;}om(e);};
 }
+let hb=null;
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&(!ws||ws.readyState!==1))connect();});
 function act(action,extra){if(!ws||ws.readyState!==1)return toast("Keine Verbindung");ws.send(JSON.stringify({type:"action",action:Object.assign({a:action},extra||{}),player:L.player||""}));}
 
 function render(){
