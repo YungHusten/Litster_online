@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Litster Online</title>
+<title>Litster</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0A0A0A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="icon" href="/icon.png"><link rel="apple-touch-icon" href="/icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;900&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0A0A0A;--surface:#141414;--surface2:#1E1E1E;--text:#F5F5F5;--muted:#A1A1AA;--gold:#D4AF37;--gold-soft:rgba(212,175,55,.12);--line:rgba(212,175,55,.3);--ok:#34D399;--bad:#F87171;--on-gold:#0A0A0A;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -74,6 +80,8 @@ const qs=new URLSearchParams(location.search);
 if(qs.get("room"))L.room=qs.get("room").toUpperCase();
 let mode=location.hash==="#tv"?"tv":location.hash==="#play"?"play":(L.mode||"");
 let state=null,ws=null,conn="off",picked=null,hostOnline=false;
+let installPrompt=null;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;if(!L.room||!mode)render();});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2500);}
 
 function connect(){
@@ -106,12 +114,14 @@ function landing(){
   setTimeout(()=>{
     const go=m=>{const c=document.getElementById("code").value.toUpperCase().replace(/[^A-Z0-9]/g,"");if(c.length<4)return toast("Code eingeben (steht in der Litster-App).");L.room=c;mode=m;L.mode=m;saveL();connect();render();};
     document.getElementById("tv").onclick=()=>go("tv");document.getElementById("pl").onclick=()=>go("play");
+    const ib=document.getElementById("inst");if(ib)ib.onclick=()=>{installPrompt.prompt();installPrompt=null;render();};
   });
   return `<div class="wrap stack" style="padding-top:3rem;text-align:center">
     <h1 style="font-size:3rem;font-weight:900">Litster</h1><p class="muted">Raumcode aus der Litster-App eingeben</p>
     <input id="code" type="text" maxlength="6" placeholder="ABCD" value="${esc(L.room||"")}" autocomplete="off">
     <button class="btn" id="pl">Mitspielen (Handy)</button>
     <button class="btn btn-line" id="tv">Spielbrett anzeigen (Fernseher)</button>
+    ${installPrompt?`<button class="btn btn-quiet" id="inst">📲 Als App installieren</button>`:""}
   </div>`;
 }
 const dot=p=>`<span class="dot" style="background:${p.color}">${esc(p.name[0].toUpperCase())}</span>`;
