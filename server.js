@@ -35,6 +35,7 @@ wss.on("connection", (ws) => {
       else { r.clients.add(ws); send(ws, { type: "joined", room: code, hasHost: !!r.host }); if (r.state) send(ws, { type: "state", state: r.state }); send(r.host, { type: "clients", n: r.clients.size }); }
       return;
     }
+    if (m.type === "ping") return send(ws, { type: "pong" });
     const r = ws.room && rooms.get(ws.room); if (!r) return;
     if (m.type === "state" && ws.role === "host") { r.state = m.state; r.updated = Date.now(); for (const c of r.clients) send(c, { type: "state", state: m.state }); }
     else if (m.type === "action" && ws.role === "client") { send(r.host, { type: "action", action: m.action, player: m.player }); }
@@ -47,7 +48,7 @@ wss.on("connection", (ws) => {
 });
 // Verbindungen am Leben halten und alte Räume aufräumen
 setInterval(() => {
-  for (const ws of wss.clients) { if (!ws.alive) return ws.terminate(); ws.alive = false; ws.ping(); }
+  for (const ws of wss.clients) { if (!ws.alive) { ws.terminate(); continue; } ws.alive = false; ws.ping(); }
   for (const [code, r] of rooms) if (!r.host && r.clients.size === 0 && Date.now() - r.updated > 6 * 3600e3) rooms.delete(code);
 }, 30000);
 
