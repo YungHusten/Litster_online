@@ -29,6 +29,8 @@ input[type=text]{width:100%;background:var(--surface2);border:1px solid transpar
 .dot{display:inline-grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:50%;font-weight:800;color:#0A0A0A}
 .toast{position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:.7rem 1.1rem;border-radius:999px;font-weight:700;z-index:60}
 .hidden{display:none!important}
+.icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:2.75rem;height:2.75rem;display:grid;place-items:center;flex:none;font-size:1.2rem;cursor:pointer;color:var(--text)}
+.bar{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem}.bar .sp{flex:1}
 /* Handy */
 .wrap{max-width:30rem;margin:0 auto;padding:1.25rem 1rem 2rem}
 .card{display:flex;align-items:center;gap:.9rem;background:var(--surface);border:1px solid var(--line);border-radius:1rem;padding:.7rem .9rem}
@@ -107,7 +109,7 @@ function act(action,extra){if(!ws||ws.readyState!==1)return toast("Keine Verbind
 function render(){
   if(!L.room||!mode)return $.innerHTML=landing();
   location.hash=mode==="tv"?"#tv":"#play";
-  if(mode==="tv")return $.innerHTML=tv();
+  if(mode==="tv"){$.innerHTML=tv();bind();return;}
   $.innerHTML=play();bind();
 }
 function landing(){
@@ -132,11 +134,11 @@ function statusText(s){
   return `<span class="player" style="background:${p.color}">${esc(p.name)}</span> ist dran ${au?" · "+au:""}`;
 }
 function tv(){
-  if(!state)return `<div class="tv"><div class="tv-head"><h1>Litster</h1><span class="code">${esc(L.room)}</span></div><div class="big" style="margin:auto">${conn==="on"?(hostOnline?"Warte auf Spielstart …":"Die Litster-App ist nicht verbunden. In der App „Online-Raum“ öffnen."):"Verbinde …"}</div></div>`;
+  if(!state)return `<div class="tv"><div class="tv-head"><h1>Litster</h1><span class="code" id="leave" style="cursor:pointer">${esc(L.room)}</span></div><div class="big" style="margin:auto">${conn==="on"?(hostOnline?"Warte auf Spielstart …":"Die Litster-App ist nicht verbunden. In der App „Online-Raum“ öffnen."):"Verbinde …"}</div></div>`;
   const s=state,n=s.players.length,cols=n<=2?1:n<=4?2:3;
   const r=[...s.players].sort((a,b)=>b.cards.length-a.cards.length);
   return `<div class="tv">
-    <div class="tv-head"><h1>Litster</h1><span class="muted" style="font-size:2vh">Runde ${s.round} · Ziel ${s.target} Karten</span><span class="code">${esc(L.room)}<div class="url">${esc(location.host)}</div></span></div>
+    <div class="tv-head"><h1>Litster</h1><span class="muted" style="font-size:2vh">Runde ${s.round} · Ziel ${s.target} Karten</span><span class="code" id="leave" style="cursor:pointer" title="Raum verlassen">${esc(L.room)}<div class="url">${esc(location.host)}</div></span></div>
     ${s.over?`<div class="tv-status">🏆 <b>${esc(r[0].name)}</b> gewinnt mit ${r[0].cards.length} Karten!</div>`:`<div class="tv-status">${statusText(s)}</div>`}
     <div class="lanes" style="grid-template-columns:repeat(${cols},1fr)">${s.players.map((p,i)=>`<div class="lane ${i===s.turn&&!s.over?"now":""}"><div class="lane-head">${dot(p)}${esc(p.name)}${p.jokers?` <span class="muted">🃏${p.jokers}</span>`:""}<span class="cnt">${p.cards.length}/${s.target}</span></div>
       <div class="strip">${p.cards.map(c=>`<div class="tcard ${s.last&&s.last.ok&&s.last.player===p.name&&s.last.song.title===c.title?"new":""}"><div class="yr">${c.year}</div><div><div class="t">${esc(c.title)}</div><div class="a">${esc(c.artist)}</div></div></div>`).join("")}</div></div>`).join("")}</div>
@@ -151,16 +153,17 @@ function play(){
   if(!mine||s.last)picked=null;
   const r=[...s.players].sort((a,b)=>b.cards.length-a.cards.length);
   if(s.over)return `<div class="wrap stack" style="text-align:center;padding-top:3rem"><h2>${esc(r[0].name)} gewinnt!</h2><p class="muted">Du: ${me.cards.length} Karten</p><button class="btn btn-quiet" id="leave">Anderer Raum</button></div>`;
+  const bar=`<div class="bar"><span class="sp small muted">Raum ${esc(L.room)} · ${esc(me.name)}</span><button class="icon-btn" id="leave" aria-label="Zum Hauptmenü">⌂</button></div>`;
   if(s.last&&s.last.player===me.name){
-    return `<div class="wrap stack" style="text-align:center;padding-top:2rem"><div class="verdict ${s.last.ok?"ok":"bad"}" style="font-size:2.5rem">${s.last.ok?"Richtig!":"Daneben!"}</div><div><b style="font-size:1.2rem">${esc(s.last.song.title)}</b><div class="muted">${esc(s.last.song.artist)}</div><div class="yr" style="font-family:Outfit;font-weight:900;font-size:2.4rem;color:var(--gold)">${s.last.song.year}</div></div>
+    return `<div class="wrap stack" style="text-align:center;padding-top:1rem">${bar}<div class="verdict ${s.last.ok?"ok":"bad"}" style="font-size:2.5rem">${s.last.ok?"Richtig!":"Daneben!"}</div><div><b style="font-size:1.2rem">${esc(s.last.song.title)}</b><div class="muted">${esc(s.last.song.artist)}</div><div class="yr" style="font-family:Outfit;font-weight:900;font-size:2.4rem;color:var(--gold)">${s.last.song.year}</div></div>
       ${s.last.ok&&!s.last.jokerAsked?`<p>Hast du auch Titel und Interpret gewusst?</p><div style="display:flex;gap:.6rem"><button class="btn" data-act="jokerAnswer" data-yes="1">Ja, +1 Joker</button><button class="btn btn-quiet" data-act="jokerAnswer" data-yes="0">Nein</button></div>`:`<button class="btn" data-act="next">Nächster Zug</button>`}</div>`;
   }
-  if(!mine)return `<div class="wrap stack" style="text-align:center;padding-top:2rem"><p class="muted">Du bist ${esc(me.name)} · ${me.cards.length}/${s.target} Karten${me.jokers?` · 🃏${me.jokers}`:""}</p><h2><span class="player" style="background:${cur.color}">${esc(cur.name)}</span> ist dran</h2><p class="muted">${s.last?"Ergebnis wird angezeigt …":"Warte, bis du dran bist."}</p>
-    <ul class="tl">${me.cards.map(c=>`<li class="card"><span class="yr">${c.year}</span><span><div class="t">${esc(c.title)}</div><div class="a">${esc(c.artist)}</div></span></li>`).join("")}</ul><button class="btn btn-quiet" id="leave" style="margin-top:1rem">Anderer Raum</button></div>`;
+  if(!mine)return `<div class="wrap stack" style="text-align:center;padding-top:1rem">${bar}<p class="muted">Du bist ${esc(me.name)} · ${me.cards.length}/${s.target} Karten${me.jokers?` · 🃏${me.jokers}`:""}</p><h2><span class="player" style="background:${cur.color}">${esc(cur.name)}</span> ist dran</h2><p class="muted">${s.last?"Ergebnis wird angezeigt …":"Warte, bis du dran bist."}</p>
+    <ul class="tl">${me.cards.map(c=>`<li class="card"><span class="yr">${c.year}</span><span><div class="t">${esc(c.title)}</div><div class="a">${esc(c.artist)}</div></span></li>`).join("")}</ul></div>`;
   const playing=s.audio==="playing"||s.audio==="ad",hint={loading:"Song wird gestartet …",playing:"Läuft. Hör gut hin!",ad:"Gleich geht's los …",paused:"Pausiert.",missing:"Song spielt nicht. Überspringen.",error:"Song spielt nicht. Überspringen."}[s.audio]||"Tipp auf Play, der Song läuft über das Host-Handy.";
   const slot=i=>`<button class="slot" data-slot="${i}" aria-pressed="${picked===i}">${picked===i?"Hier ablegen":"＋ hier einsortieren"}</button>`;
   let items=slot(0);me.cards.forEach((c,i)=>{items+=`<li class="card"><span class="yr">${c.year}</span><span><div class="t">${esc(c.title)}</div><div class="a">${esc(c.artist)}</div></span></li>`+slot(i+1);});
-  return `<div class="wrap">
+  return `<div class="wrap">${bar}
     <h2 style="text-align:center;margin-bottom:1rem"><span class="player" style="background:${me.color}">${esc(me.name)}</span>, du bist dran</h2>
     <div class="mystery"><button class="play" data-act="play">${playing?"❚❚":"▶"}</button><div><div class="q">? ? ? ?</div><div class="small muted">${hint}</div></div></div>
     <p class="small muted" style="margin:0 0 .5rem">Stelle antippen, zum Ablegen nochmal tippen. Oben ist alt, unten ist neu.</p>
@@ -170,7 +173,7 @@ function play(){
   </div>`;
 }
 function bind(){
-  const lv=document.getElementById("leave");if(lv)lv.onclick=()=>{L.room="";L.player="";mode="";L.mode="";saveL();state=null;render();};
+  const lv=document.getElementById("leave");if(lv)lv.onclick=()=>{mode="";L.mode="";saveL();state=null;if(ws){try{ws.onclose=null;ws.close();}catch(e){}ws=null;}conn="off";location.hash="";render();};
   $.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{L.player=b.dataset.pick;saveL();render();});
   $.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{const a=b.dataset.act;act(a,a==="jokerAnswer"?{yes:b.dataset.yes==="1"}:{});});
   $.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>{const i=+b.dataset.slot;if(picked===i){act("place",{slot:i});picked=null;return;}picked=i;
